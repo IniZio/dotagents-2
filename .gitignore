@@ -2,3 +2,5 @@ deprecated-20260109/
 node_modules/
 .oursky/worktrees/
 /oursky
+.cursor/
+.opencode/

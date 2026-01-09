@@ -40,19 +40,19 @@ Automatically registers skills from shared templates as MCP tools based on agent
 ### **Generation Process**
 1. **Read** `.oursky/config.yaml` for enabled agents
 2. **Load** agent-specific templates from `.oursky/agents/{agent}/`
-3. **Substitute** variables (MCP host/port, auth tokens, project metadata)
-4. **Copy** referenced shared templates to agent directories
-5. **Generate** final configs in correct locations
+3. **Merge** templates from base, remote repos, and agent overrides using recursive merging
+4. **Substitute** variables (MCP host/port, auth tokens, project metadata)
+5. **Copy** referenced shared templates to agent directories
+6. **Generate** final configs in correct locations using `GenerateAgentConfigs()` method
 
 ### **Template Variables**
 - `{{.Host}}` - MCP server host (default: localhost)
 - `{{.Port}}` - MCP server port (default: 3001)
-- `{{.AuthToken}}` - Authentication token
+- `{{.AuthToken}}` - Authentication token (currently placeholder)
 - `{{.ProjectName}}` - Project name for rules
-- `{{.DatabaseURL}}` - Database connection string
-- `{{.RulesConfig}}` - JSON object of enabled rules
-- `{{.SkillsConfig}}` - JSON object of enabled skills
-- `{{.CommandsConfig}}` - JSON object of enabled commands
+- `{{.RulesConfig}}` - JSON object of enabled rules (TODO: implement population)
+- `{{.SkillsConfig}}` - JSON object of enabled skills (TODO: implement population)
+- `{{.CommandsConfig}}` - JSON object of enabled commands (TODO: implement population)
 
 ### **Supported Agents**
 
@@ -111,3 +111,10 @@ mcp:
 ```
 
 Generated configs connect all agents to the MCP gateway with appropriate authentication and capabilities.
+
+## 8. Implementation Status
+- ✅ Template merging from multiple sources (base, remotes, agents)
+- ✅ Agent config file generation during `dev` command
+- ✅ Support for Cursor, OpenCode, Claude Desktop/Code
+- 🚧 TODO: Populate RulesConfig, SkillsConfig, CommandsConfig as JSON
+- 🚧 TODO: Implement authentication token generation

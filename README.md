@@ -1,42 +1,71 @@
-# Oursky (Vibegear Rework)
+# Vendatta
 
-Oursky is a developer-centric, single-binary dev environment manager. It abstracts complex infrastructure into a simple CLI, providing isolated, reproducible, and AI-agent-friendly codespaces using local providers (Docker, LXC).
+Vendatta eliminates the "it works on my machine" problem by providing isolated, reproducible development environments that work seamlessly with Coding Agents e.g. Cursor, OpenCode, Claude, etc.
 
 ## Key Features
 
-- **Single Binary**: No complex dependencies on the host machine.
-- **Git Worktree Managed**: Automatic isolation of code for every branch/session.
-- **BYOA (Bring Your Own Agent)**: Built-in Model Context Protocol (MCP) server for Cursor, OpenCode, and Claude.
-- **Service Discovery**: Automatic port mapping and environment variable injection (`OURSKY_SERVICE_WEB_URL`, etc.).
-- **Docker-in-Docker**: Seamless support for `docker-compose` projects inside isolated environments.
+- **Single Binary**: Zero-setup installation with no host dependencies
+- **Branch Isolation**: Git worktrees provide unique filesystems for every branch
+- **AI Agent Integration**: Automatic configuration for Cursor, OpenCode, Claude, and more via Model Context Protocol (MCP)
+- **Service Discovery**: Automatic port mapping and environment variables for multi-service apps
+- **Docker-in-Docker**: Run docker-compose projects inside isolated environments
 
 ## Quick Start
 
-### 1. Installation
-Build the binary using Go (requires Go 1.24+):
+### Try It Now
+
+Get started in 2 simple steps:
+
 ```bash
+# 1. Install Vendatta
+curl -fsSL https://raw.githubusercontent.com/oursky/vendatta/main/install.sh | bash
+
+# Add ~/.local/bin to your PATH if not already:
+# export PATH="$HOME/.local/bin:$PATH"
+
+# 2. Initialize in your project
+oursky init
+
+# 3. Start an isolated development session
+oursky dev my-feature
+```
+
+That's it! Vendatta creates an isolated environment for your `my-feature` branch with automatic AI agent configuration.
+
+#### Alternative: Build from Source
+
+If you prefer to build from source:
+
+```bash
+# Requires Go 1.24+
 go build -o oursky cmd/oursky/main.go
 ```
 
-### 2. Onboard a Project
-Initialize the `.oursky` configuration in your repository:
+#### Updates
+
+To update to the latest version:
+
 ```bash
-./oursky init
+oursky update
 ```
 
-### 3. Configure Your Stack
-Edit `.oursky/config.yaml` to define your development environment:
+### Understanding What Happened
+
+- **Step 1**: Built a single Go binary that manages everything
+- **Step 2**: Created a `.oursky/` directory with basic configuration templates
+- **Step 3**: Generated a Git worktree at `.oursky/worktrees/my-feature/` and started any configured services
+
+Your AI agents (Cursor, OpenCode, etc.) are now automatically configured to work with this isolated environment.
+
+### Configure for Your Project
+
+Vendatta works with your existing development setup. Edit `.oursky/config.yaml` to define your services:
 
 ```yaml
-# Project settings
-name: "my-web-app"
-
-# Define your services (database, API, frontend, etc.)
+# Example: Full-stack web app
 services:
   db:
     command: "docker-compose up -d postgres"
-    healthcheck:
-      url: "http://localhost:5432/health"
   api:
     command: "cd server && npm run dev"
     depends_on: ["db"]
@@ -50,68 +79,78 @@ agents:
     enabled: true
   - name: "opencode"
     enabled: true
-
-# MCP server configuration
-mcp:
-  enabled: true
-  port: 3001
 ```
 
-### 4. Start Developing
-Spin up an isolated environment for a feature branch:
-```bash
-./oursky dev feature-login
-```
+Run `./oursky dev my-feature` again to apply your configuration.
 
-The CLI automatically generates AI agent configurations and starts your services in an isolated environment.
+## When to Use Vendatta
 
-## AI Agent Configuration
+### Branch-Based Development
+Perfect for teams working on multiple features simultaneously:
+- Each branch gets its own isolated filesystem
+- No more "git stash" or conflicting dependencies
+- Parallel development without environment pollution
 
-Oursky automatically configures your favorite AI coding assistants to work securely with your isolated development environments.
+### Complex Microservices
+When your local setup involves multiple services:
+- Databases, APIs, frontend apps
+- Docker-compose projects run inside containers
+- Automatic service discovery and port mapping
+
+### AI-Assisted Development
+Enhance your AI coding experience:
+- Secure tool execution for agents
+- Project-specific rules and capabilities
+- Standardized skills across different AI tools
+
+### Team Standardization
+Ensure consistent development environments:
+- Version-controlled configurations
+- Shared templates for coding standards
+- Easy onboarding for new team members
+
+## AI Agent Integration
+
+Vendatta automatically configures your favorite AI coding assistants to work securely with isolated environments.
 
 ### Supported Agents
 
-| Agent | Description | Generated Config |
-|-------|-------------|------------------|
-| **Cursor** | VS Code extension with AI | `.cursor/mcp.json` |
+| Agent | Description | Integration |
+|-------|-------------|-------------|
+| **Cursor** | VS Code with AI | `.cursor/mcp.json` |
 | **OpenCode** | Standalone AI assistant | `opencode.json` + `.opencode/` |
 | **Claude Desktop** | Anthropic's desktop app | `claude_desktop_config.json` |
-| **Claude Code** | Anthropic's CLI tool | `claude_code_config.json` |
+| **Claude Code** | CLI tool | `claude_code_config.json` |
 
 ### How It Works
 
-1. **Configure agents** in `.oursky/config.yaml`:
-   ```yaml
-   agents:
-     - name: "cursor"
-       enabled: true
-     - name: "opencode"
-       enabled: true
-   ```
-
-2. **Run development session**:
-   ```bash
-   ./oursky dev my-feature
-   ```
-
-3. **Open in your AI agent**:
-   - Cursor: Open `.oursky/worktrees/my-feature/`
-   - OpenCode: The generated `opencode.json` connects automatically
-   - Claude: Uses generated config files
+1. **Enable agents** in `.oursky/config.yaml`
+2. **Start development**: `./oursky dev branch-name`
+3. **Open your worktree** in the AI agent of choice
+4. **Agents connect automatically** via MCP with full environment access
 
 ### Shared Capabilities
 
-Oursky includes standard AI capabilities that work across all agents:
-
+All enabled agents get access to:
 - **Skills**: Web search, file operations, data analysis
 - **Commands**: Build, deploy, git operations
 - **Rules**: Code quality standards, collaboration guidelines
 
-Customize these in `.oursky/templates/` and they'll be available to all your enabled agents.
+Customize these in `.oursky/templates/` and they're available to all your agents.
 
-## Configuration System
+### Agent Config Sharing
 
-### File Structure
+Share standardized AI configurations across your team:
+- **Version-controlled setups**: Store agent configurations in git alongside your code
+- **Team consistency**: Ensure all developers use the same AI skills, commands, and rules
+- **Easy collaboration**: New team members get identical AI assistance setups
+- **Cross-agent compatibility**: Configurations work seamlessly across Cursor, OpenCode, Claude, and other agents
+
+Simply commit your `.oursky/templates/` directory to share configurations with your team.
+
+## Configuration Reference
+
+### Project Structure
 ```
 .oursky/
 ├── config.yaml          # Main project configuration
@@ -119,17 +158,48 @@ Customize these in `.oursky/templates/` and they'll be available to all your ena
 │   ├── skills/          # Reusable AI skills
 │   ├── commands/        # Development commands
 │   └── rules/           # Coding guidelines
-├── agents/              # Agent-specific templates
-│   ├── cursor/          # Cursor configuration
-│   ├── opencode/        # OpenCode configuration
-│   ├── claude-desktop/  # Claude Desktop config
-│   └── claude-code/     # Claude Code config
+├── agents/              # Agent-specific overrides
 └── worktrees/           # Auto-generated environments
+```
+
+### Main Configuration
+
+The `.oursky/config.yaml` file defines your development environment:
+
+```yaml
+# Project settings
+name: "my-web-app"
+
+# Services to run
+services:
+  db:
+    command: "docker-compose up -d postgres"
+    healthcheck:
+      url: "http://localhost:5432/health"
+  api:
+    command: "cd server && npm run dev"
+    depends_on: ["db"]
+  web:
+    command: "cd client && npm run dev"
+    depends_on: ["api"]
+
+# AI agents to configure
+agents:
+  - name: "cursor"
+    enabled: true
+  - name: "opencode"
+    enabled: true
+
+# MCP server settings
+mcp:
+  enabled: true
+  port: 3001
 ```
 
 ### Customizing Templates
 
-**Add a new skill** in `.oursky/templates/skills/my-skill.yaml`:
+#### Adding AI Skills
+Create `.oursky/templates/skills/my-skill.yaml`:
 ```yaml
 name: "my-custom-skill"
 description: "Does something useful"
@@ -142,29 +212,35 @@ execute:
   args: ["scripts/my-skill.js"]
 ```
 
-**Add coding rules** in `.oursky/templates/rules/my-rules.md`:
+#### Defining Commands
+Create `.oursky/templates/commands/my-command.yaml`:
+```yaml
+name: "deploy"
+description: "Deploy to staging"
+steps:
+  - name: "Build"
+    command: "npm run build"
+  - name: "Deploy"
+    command: "kubectl apply -f k8s/"
+```
+
+#### Setting Coding Rules
+Create `.oursky/templates/rules/team-standards.md`:
 ```markdown
 ---
-title: "My Team Standards"
+title: "Team Standards"
 applies_to: ["**/*.ts", "**/*.js"]
 ---
 
-# Team Coding Standards
+# Code Quality Standards
 - Use TypeScript for new code
-- Maximum function length: 30 lines
+- Functions should be < 30 lines
 - Always add return types
-```
-
-**Enable for agents** by updating `.oursky/config.yaml`:
-```yaml
-# In your agent config sections
-rules: ["my-rules"]
-skills: ["my-custom-skill"]
 ```
 
 ### Environment Variables
 
-Use environment variables for secrets and dynamic configuration:
+Use variables for dynamic configuration:
 
 ```yaml
 # In config.yaml
@@ -177,16 +253,44 @@ export MCP_PORT=3001
 ./oursky dev my-branch
 ```
 
-## Example Usage
+### Service Discovery & Port Access
 
-### Full-Stack Web Development
+Vendatta automatically discovers running services and provides environment variables for easy access:
 
-1. **Initialize project**:
+**Available in worktrees**: When you run `./oursky dev branch-name`, your worktree environment gets these variables:
+
+- `OURSKY_SERVICE_DB_URL` - Database connection URL
+- `OURSKY_SERVICE_API_URL` - API service URL
+- `OURSKY_SERVICE_WEB_URL` - Web frontend URL
+- And more for each service you define
+
+**Example usage in your code**:
+
+```javascript
+// In your frontend config
+const apiUrl = process.env.OURSKY_SERVICE_API_URL || 'http://localhost:3001';
+
+// In your API config
+const dbUrl = process.env.OURSKY_SERVICE_DB_URL;
+```
+
+**Check available services**:
+
+```bash
+# In your worktree directory
+env | grep OURSKY_SERVICE
+```
+
+This eliminates manual port management and ensures your services can communicate seamlessly across the isolated environment.
+
+## Example: Full-Stack Development
+
+1. **Set up your project**:
    ```bash
    ./oursky init
    ```
 
-2. **Configure for web development** (edit `.oursky/config.yaml`):
+2. **Configure services** (edit `.oursky/config.yaml`):
    ```yaml
    services:
      db:
@@ -201,8 +305,6 @@ export MCP_PORT=3001
    agents:
      - name: "cursor"
        enabled: true
-     - name: "opencode"
-       enabled: true
    ```
 
 3. **Start development**:
@@ -212,62 +314,7 @@ export MCP_PORT=3001
 
 4. **Code with AI assistance**:
    - Open `.oursky/worktrees/new-feature/` in Cursor
-   - Use OpenCode with the generated config
-   - All agents have access to your full development environment
-
-## Dogfooding (Developing Oursky with Oursky)
-
-Oursky is designed to be self-hosting. To develop the `oursky` project itself using an isolated environment:
-
-1.  **Build the CLI**:
-    ```bash
-    go build -o oursky cmd/oursky/main.go
-    ```
-2.  **Initialize Oursky on Oursky**:
-    ```bash
-    ./oursky init
-    ```
-3.  **Configure agents** (optional, edit `.oursky/config.yaml`):
-    ```yaml
-    agents:
-      - name: "cursor"
-        enabled: true
-    ```
-4.  **Spin up a dev session**:
-    ```bash
-    ./oursky dev main
-    ```
-    *This creates a worktree at `.oursky/worktrees/main`, starts a container, generates AI agent configs, and mounts it.*
-5.  **Connect your Agent**:
-    Open `.oursky/worktrees/main/` in Cursor - the MCP connection is automatically configured.
-6.  **Verify Changes**:
-    Since the Docker socket is bind-mounted (DinD), you can run `./oursky` commands *inside* the Oursky container to spawn further sub-environments or run tests.
-
-## Project Structure
-
-### Code
-- `pkg/ctrl`: Control Plane - Orchestration and lifecycle logic.
-- `pkg/provider`: Execution Plane - Environment abstraction (Docker, LXC).
-- `pkg/worktree`: Filesystem isolation using Git Worktrees.
-- `pkg/agent`: Agent Plane - MCP server and configuration generation.
-
-### Configuration (`.oursky/`)
-- `config.yaml`: Main project configuration
-- `templates/`: Shared AI capabilities (skills, commands, rules)
-- `agents/`: Agent-specific configuration templates
-- `worktrees/`: Auto-generated isolated development environments
-
-### Documentation
-- `docs/`: Technical specifications and planning
-- `example/`: Complete working example project
-
-## Roadmap
-
-See [docs/planning/README.md](./docs/planning/README.md) for milestones and tasks.
-
-- **M1: CLI MVP** (Current) - Docker + Worktree + MCP.
-- **M2: Alpha** - LXC Provider, Advanced Port Forwarding.
-- **M3: Beta** - QEMU/Virtualization for macOS/Windows.
+   - AI agent connects automatically with full environment access
 
 ---
 *Powered by OhMyOpenCode.*

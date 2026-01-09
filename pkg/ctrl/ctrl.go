@@ -38,6 +38,10 @@ func (c *BaseController) Init(ctx context.Context) error {
 		".oursky/agents/rules",
 		".oursky/agents/skills",
 		".oursky/agents/commands",
+		".oursky/templates/skills",
+		".oursky/templates/rules",
+		".oursky/templates/commands",
+		".oursky/remotes",
 	}
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -48,7 +52,8 @@ func (c *BaseController) Init(ctx context.Context) error {
 	configYaml := `name: my-project
 provider: docker
 services:
-  web: 3000
+  web:
+    port: 3000
 docker:
   image: ubuntu:22.04
   dind: true
@@ -85,6 +90,17 @@ func (c *BaseController) Dev(ctx context.Context, branch string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// Initialize remotes
+	if err := cfg.InitializeRemotes(".oursky"); err != nil {
+		return fmt.Errorf("failed to initialize remotes: %w", err)
+	}
+
+	// Get merged templates
+	merged, err := cfg.GetMergedTemplates(".oursky")
+	if err != nil {
+		return fmt.Errorf("failed to merge templates: %w", err)
+	}
+
 	p, ok := c.Providers[cfg.Provider]
 	if !ok {
 		return fmt.Errorf("provider %s not found", cfg.Provider)
@@ -99,6 +115,11 @@ func (c *BaseController) Dev(ctx context.Context, branch string) error {
 	absWtPath, err := filepath.Abs(wtPath)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path for worktree: %w", err)
+	}
+
+	// Generate agent configs
+	if err := cfg.GenerateAgentConfigs(absWtPath, merged); err != nil {
+		return fmt.Errorf("failed to generate agent configs: %w", err)
 	}
 
 	sessionID := fmt.Sprintf("%s-%s", cfg.Name, branch)
@@ -122,11 +143,13 @@ func (c *BaseController) Dev(ctx context.Context, branch string) error {
 
 	env := []string{}
 	if activeSession != nil {
-		for name, port := range cfg.Services {
-			pStr := fmt.Sprintf("%d", port)
-			if publicPort, ok := activeSession.Services[pStr]; ok {
-				url := fmt.Sprintf("http://localhost:%d", publicPort)
-				env = append(env, fmt.Sprintf("OURSKY_SERVICE_%s_URL=%s", name, url))
+		for name, svc := range cfg.Services {
+			if svc.Port > 0 {
+				pStr := fmt.Sprintf("%d", svc.Port)
+				if publicPort, ok := activeSession.Services[pStr]; ok {
+					url := fmt.Sprintf("http://localhost:%d", publicPort)
+					env = append(env, fmt.Sprintf("OURSKY_SERVICE_%s_URL=%s", name, url))
+				}
 			}
 		}
 	}

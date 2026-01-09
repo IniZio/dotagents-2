@@ -1,9 +1,15 @@
 name: my-project
 provider: docker
 services:
-  web: 3000
+  web:
+    port: 3000
+agents:
+  - name: cursor
+    enabled: true
+  - name: opencode
+    enabled: true
 docker:
-  image: ubuntu:24.04
+  image: ubuntu:22.04
   dind: true
 hooks:
   setup: .oursky/hooks/setup.sh

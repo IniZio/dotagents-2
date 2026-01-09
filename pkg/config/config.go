@@ -1,31 +1,70 @@
 package config
 
 import (
-	"gopkg.in/yaml.v3"
+	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
+	"text/template"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/vibegear/oursky/pkg/templates"
 )
 
+type Service struct {
+	Command     string            `yaml:"command,omitempty"`
+	Port        int               `yaml:"port,omitempty"` // Legacy support
+	Healthcheck *Healthcheck      `yaml:"healthcheck,omitempty"`
+	DependsOn   []string          `yaml:"depends_on,omitempty"`
+	Env         map[string]string `yaml:"env,omitempty"`
+}
+
+type Healthcheck struct {
+	URL      string `yaml:"url"`
+	Interval string `yaml:"interval,omitempty"`
+	Timeout  string `yaml:"timeout,omitempty"`
+	Retries  int    `yaml:"retries,omitempty"`
+}
+
+type Agent struct {
+	Name     string   `yaml:"name"`
+	Enabled  bool     `yaml:"enabled,omitempty"`
+	Rules    string   `yaml:"rules,omitempty"`
+	Skills   []string `yaml:"skills,omitempty"`
+	Commands []string `yaml:"commands,omitempty"`
+}
+
+type TemplateRepo struct {
+	URL    string `yaml:"url"`
+	Branch string `yaml:"branch,omitempty"`
+	Path   string `yaml:"path,omitempty"` // Path within repo to templates
+}
+
 type Config struct {
-	Name     string         `yaml:"name"`
-	Provider string         `yaml:"provider"`
-	Services map[string]int `yaml:"services"`
-	Docker   struct {
+	Name     string             `yaml:"name"`
+	Provider string             `yaml:"provider,omitempty"`
+	Services map[string]Service `yaml:"services"`
+	Remotes  []TemplateRepo     `yaml:"remotes,omitempty"`
+	Agents   []Agent            `yaml:"agents,omitempty"`
+	MCP      struct {
+		Enabled bool   `yaml:"enabled,omitempty"`
+		Port    int    `yaml:"port,omitempty"`
+		Host    string `yaml:"host,omitempty"`
+	} `yaml:"mcp,omitempty"`
+	Docker struct {
 		Image string   `yaml:"image"`
-		Ports []string `yaml:"ports"`
-		DinD  bool     `yaml:"dind"`
-	} `yaml:"docker"`
+		Ports []string `yaml:"ports,omitempty"`
+		DinD  bool     `yaml:"dind,omitempty"`
+	} `yaml:"docker,omitempty"`
 	LXC struct {
-		Image string `yaml:"image"`
-	} `yaml:"lxc"`
-	Agent struct {
-		Role     string   `yaml:"role"`
-		Features []string `yaml:"features"`
-	} `yaml:"agent"`
+		Image string `yaml:"image,omitempty"`
+	} `yaml:"lxc,omitempty"`
 	Hooks struct {
-		Setup    string `yaml:"setup"`
-		Dev      string `yaml:"dev"`
-		Teardown string `yaml:"teardown"`
-	} `yaml:"hooks"`
+		Setup    string `yaml:"setup,omitempty"`
+		Dev      string `yaml:"dev,omitempty"`
+		Teardown string `yaml:"teardown,omitempty"`
+	} `yaml:"hooks,omitempty"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -36,4 +75,163 @@ func LoadConfig(path string) (*Config, error) {
 	var cfg Config
 	err = yaml.Unmarshal(data, &cfg)
 	return &cfg, err
+}
+
+// InitializeRemotes pulls all template repositories defined in config
+func (c *Config) InitializeRemotes(baseDir string) error {
+	if len(c.Remotes) == 0 {
+		return nil
+	}
+
+	manager := templates.NewManager(baseDir)
+
+	for _, repo := range c.Remotes {
+		if err := manager.PullRepo(templates.TemplateRepo{
+			URL:    repo.URL,
+			Branch: repo.Branch,
+			Path:   repo.Path,
+		}); err != nil {
+			return fmt.Errorf("failed to pull template repo %s: %w", repo.URL, err)
+		}
+	}
+
+	return nil
+}
+
+// RenderData holds data for template rendering
+type RenderData struct {
+	Host           string
+	Port           int
+	AuthToken      string
+	ProjectName    string
+	RulesConfig    string // JSON
+	SkillsConfig   string // JSON
+	CommandsConfig string // JSON
+}
+
+// GetMergedTemplates returns merged template data from all sources
+func (c *Config) GetMergedTemplates(baseDir string) (*templates.TemplateData, error) {
+	manager := templates.NewManager(baseDir)
+	return manager.Merge(baseDir)
+}
+
+// GenerateAgentConfigs generates agent configuration files from templates
+func (c *Config) GenerateAgentConfigs(worktreePath string, merged *templates.TemplateData) error {
+	// Agent configurations mapping
+	agentConfigs := map[string]struct {
+		templatePath string
+		outputPath   string
+		gitignore    string
+	}{
+		"cursor": {
+			templatePath: ".oursky/agents/cursor/mcp.json.tpl",
+			outputPath:   ".cursor/mcp.json",
+			gitignore:    ".cursor/",
+		},
+		"opencode": {
+			templatePath: ".oursky/agents/opencode/opencode.json.tpl",
+			outputPath:   "opencode.json",
+			gitignore:    ".opencode/",
+		},
+		"claude-desktop": {
+			templatePath: ".oursky/agents/claude-desktop/claude_desktop_config.json.tpl",
+			outputPath:   "claude_desktop_config.json",
+			gitignore:    "claude_desktop_config.json",
+		},
+		"claude-code": {
+			templatePath: ".oursky/agents/claude-code/claude_code_config.json.tpl",
+			outputPath:   "claude_code_config.json",
+			gitignore:    "claude_code_config.json",
+		},
+	}
+
+	renderData := RenderData{
+		Host:        c.MCP.Host,
+		Port:        c.MCP.Port,
+		AuthToken:   "token", // TODO: generate or configure
+		ProjectName: c.Name,
+		// TODO: populate RulesConfig, etc. as JSON
+	}
+
+	var gitignorePatterns []string
+	for _, agent := range c.Agents {
+		if !agent.Enabled {
+			continue
+		}
+
+		cfg, ok := agentConfigs[agent.Name]
+		if !ok {
+			continue
+		}
+
+		templateContent, err := os.ReadFile(cfg.templatePath)
+		if err != nil {
+			return fmt.Errorf("failed to read template %s: %w", cfg.templatePath, err)
+		}
+
+		tmpl, err := template.New("template").Parse(string(templateContent))
+		if err != nil {
+			return fmt.Errorf("failed to parse template for %s: %w", agent.Name, err)
+		}
+
+		var result strings.Builder
+		if err := tmpl.Execute(&result, renderData); err != nil {
+			return fmt.Errorf("failed to execute template for %s: %w", agent.Name, err)
+		}
+		rendered := result.String()
+
+		outputPath := filepath.Join(worktreePath, cfg.outputPath)
+		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+			return fmt.Errorf("failed to create dir for %s: %w", outputPath, err)
+		}
+
+		if err := os.WriteFile(outputPath, []byte(rendered), 0644); err != nil {
+			return fmt.Errorf("failed to write config for %s: %w", agent.Name, err)
+		}
+
+		gitignorePatterns = append(gitignorePatterns, cfg.gitignore)
+	}
+
+	// Update .gitignore with generated patterns
+	if err := updateGitignore(gitignorePatterns); err != nil {
+		return fmt.Errorf("failed to update .gitignore: %w", err)
+	}
+
+	return nil
+}
+
+// updateGitignore adds patterns to .gitignore if not already present
+func updateGitignore(patterns []string) error {
+	gitignorePath := ".gitignore"
+	var existing []string
+
+	if content, err := os.ReadFile(gitignorePath); err == nil {
+		existing = strings.Split(strings.TrimSpace(string(content)), "\n")
+	}
+
+	var cleaned []string
+	for _, line := range existing {
+		if strings.TrimSpace(line) != "" {
+			cleaned = append(cleaned, line)
+		}
+	}
+	existing = cleaned
+
+	// Add missing patterns
+	for _, pattern := range patterns {
+		found := false
+		for _, line := range existing {
+			if strings.TrimSpace(line) == pattern {
+				found = true
+				break
+			}
+		}
+		if !found {
+			existing = append(existing, pattern)
+		}
+	}
+
+	// Write back
+	newContent := strings.Join(existing, "\n") + "\n"
+	return os.WriteFile(gitignorePath, []byte(newContent), 0644)
 }

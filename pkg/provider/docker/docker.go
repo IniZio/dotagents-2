@@ -55,10 +55,12 @@ func (p *DockerProvider) Create(ctx context.Context, sessionID string, workspace
 		"22/tcp": {{HostIP: "0.0.0.0", HostPort: "0"}},
 	}
 
-	for _, port := range cfg.Services {
-		pStr := fmt.Sprintf("%d/tcp", port)
-		exposedPorts[nat.Port(pStr)] = struct{}{}
-		portBindings[nat.Port(pStr)] = []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "0"}}
+	for _, svc := range cfg.Services {
+		if svc.Port > 0 {
+			pStr := fmt.Sprintf("%d/tcp", svc.Port)
+			exposedPorts[nat.Port(pStr)] = struct{}{}
+			portBindings[nat.Port(pStr)] = []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "0"}}
+		}
 	}
 
 	mounts := []mount.Mount{
@@ -100,11 +102,13 @@ func (p *DockerProvider) Create(ctx context.Context, sessionID string, workspace
 	}
 
 	env := []string{}
-	for name, port := range cfg.Services {
-		pStr := fmt.Sprintf("%d/tcp", port)
-		if bindings, ok := json.NetworkSettings.Ports[nat.Port(pStr)]; ok && len(bindings) > 0 {
-			url := fmt.Sprintf("http://localhost:%s", bindings[0].HostPort)
-			env = append(env, fmt.Sprintf("OURSKY_SERVICE_%s_URL=%s", name, url))
+	for name, svc := range cfg.Services {
+		if svc.Port > 0 {
+			pStr := fmt.Sprintf("%d/tcp", svc.Port)
+			if bindings, ok := json.NetworkSettings.Ports[nat.Port(pStr)]; ok && len(bindings) > 0 {
+				url := fmt.Sprintf("http://localhost:%s", bindings[0].HostPort)
+				env = append(env, fmt.Sprintf("OURSKY_SERVICE_%s_URL=%s", name, url))
+			}
 		}
 	}
 
