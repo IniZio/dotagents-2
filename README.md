@@ -13,7 +13,6 @@ Agent configuration templates for OurSky/Vendatta.
 
 ## Commands
 
-- `/design` - Create feature specifications
 - `/plan` - Generate dependency-ordered tasks
 - `/implement` - Execute tasks with memory-first approach
 - `/test` - Test features with real app
@@ -23,8 +22,5 @@ Agent configuration templates for OurSky/Vendatta.
 
 ## Rules
 
-- `api.md` - NestJS API development guidelines
 - `portal.md` - React portal development guidelines
 - `spec-to-code.md` - General spec-to-code workflow guidelines
-
-*Powered by OhMyOpenCode*
