@@ -1,0 +1,36 @@
+name: "design"
+description: "Create or update feature specification (design.md) following spec-to-code workflow. Interview user to clarify requirements before coding."
+steps:
+  - name: "Determine feature name and scope"
+    command: |
+      # Extract from user input or ask if unclear
+      # Use PascalCase (e.g., "UserAuthentication", "InvoiceProcessing")
+      # Generate date prefix: Use format YYYYMMDD-HHMMSS (e.g., 20251121-123456)
+      # Create directory: .oursky/scopes/{date-prefix}-{FeatureName}/
+      # Example: .oursky/scopes/20251121-123456-UserAuthentication/
+      # Set FEATURE_NAME = FeatureName (PascalCase)
+      # Set FEATURE_DIR = .oursky/scopes/{date-prefix}-{FeatureName}/
+      # Report active scope: "Creating feature: [FeatureName] in [FEATURE_DIR]"
+  - name: "Load memory documentation"
+    command: |
+      # Read .oursky/memory/constitution.md (mandatory)
+      # Check relevant memory files for patterns/constraints
+      # Prefer memory over codebase - memory is source of truth
+  - name: "Interview user"
+    command: |
+      # If needed: purpose & user problem, success criteria, scope & constraints, technical considerations, out of scope items
+      # Only ask critical questions (max 3-5)
+  - name: "Create design.md"
+    command: |
+      # Location: FEATURE_DIR/design.md
+      # Structure with purpose, success criteria, scope, requirements, technical considerations, user scenarios, assumptions, clarifications
+      # Keep concise and focused on WHAT/WHY, not HOW
+  - name: "Present to user"
+    command: |
+      # Show the design.md
+      # Ask: "Does this capture your intent? Any changes needed?"
+      # Iterate until approved
+  - name: "After approval"
+    command: |
+      # Suggest: "Ready to create tasks? Use /plan or I can create tasks.md now"
+      # Wait for explicit approval before proceeding to tasks
