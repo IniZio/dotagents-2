@@ -1,6 +1,6 @@
 # DotAgents
 
-Agent configuration templates for OurSky/Vendatta.
+Agent configuration templates for Oursky/Vendatta.
 
 ## Structure
 
